@@ -16,13 +16,23 @@ describe('security headers', () => {
     expect(CSP).toContain(`'${THEME_SCRIPT_HASH}'`)
   })
 
-  it('locks the site to its own origin', () => {
+  it('preserves the base security restrictions', () => {
     expect(CSP).toContain("default-src 'self'")
     expect(CSP).toContain("frame-ancestors 'none'")
     expect(CSP).toContain("object-src 'none'")
     expect(CSP).not.toContain('unsafe-eval')
     expect(SECURITY_HEADERS['strict-transport-security']).toMatch(/max-age=\d{8}/)
     expect(SECURITY_HEADERS['x-content-type-options']).toBe('nosniff')
+  })
+
+  it('uses the response nonce for AdSense and its dynamically loaded scripts', () => {
+    const res = withSecurityHeaders(new Response('<html>'), 'test-nonce')
+    const policy = res.headers.get('content-security-policy')!
+    expect(policy).toContain("script-src 'nonce-test-nonce' 'strict-dynamic'")
+    expect(policy).toContain("connect-src 'self' https:")
+    expect(policy).toContain('frame-src https:')
+    expect(policy).not.toContain("script-src 'self'")
+    expect(policy).toContain("frame-ancestors 'none'")
   })
 
   it('adds the headers without disturbing the response', async () => {

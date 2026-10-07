@@ -7,7 +7,18 @@ const app = new Hono<{ Bindings: Env }>()
 // API, redirects); see headers.ts for the policy.
 app.use('*', async (c, next) => {
   await next()
-  c.res = withSecurityHeaders(c.res)
+  if (c.res.headers.get('content-type')?.includes('text/html')) {
+    const bytes = crypto.getRandomValues(new Uint8Array(16))
+    const nonce = btoa(String.fromCharCode(...bytes))
+    const html = new HTMLRewriter().on('script', {
+      element(element) {
+        element.setAttribute('nonce', nonce)
+      },
+    }).transform(c.res)
+    c.res = withSecurityHeaders(html, nonce)
+  } else {
+    c.res = withSecurityHeaders(c.res)
+  }
 })
 
 const SHARE_TOOLS: Record<string, string> = {
